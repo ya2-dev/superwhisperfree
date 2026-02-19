@@ -42,7 +42,7 @@ final class ModelSelectionView: NSView {
     
     private let languageSegment = NSSegmentedControl()
     private let modelsStackView = NSStackView()
-    private let downloadButton = NSButton()
+    private let downloadButton = SWButton(title: "Download & Continue", style: .primary)
     private let progressBar = NSProgressIndicator()
     private let statusLabel = NSTextField(labelWithString: "")
     private let errorLabel = NSTextField(labelWithString: "")
@@ -199,14 +199,9 @@ final class ModelSelectionView: NSView {
     }
     
     private func setupDownloadButton() {
-        downloadButton.title = "Download & Continue"
-        downloadButton.bezelStyle = .rounded
-        downloadButton.isBordered = true
-        downloadButton.font = DesignTokens.Typography.body(size: 14)
-        downloadButton.target = self
-        downloadButton.action = #selector(downloadClicked)
-        downloadButton.wantsLayer = true
-        downloadButton.layer?.cornerRadius = DesignTokens.CornerRadius.medium
+        downloadButton.setAction { [weak self] in
+            self?.downloadClicked()
+        }
     }
     
     private func setupProgressBar() {
@@ -235,7 +230,7 @@ final class ModelSelectionView: NSView {
         errorLabel.preferredMaxLayoutWidth = 400
     }
     
-    @objc private func downloadClicked() {
+    private func downloadClicked() {
         guard !isDownloading else { return }
         
         isDownloading = true

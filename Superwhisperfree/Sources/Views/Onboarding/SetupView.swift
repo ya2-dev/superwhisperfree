@@ -64,15 +64,15 @@ final class SetupView: NSView {
         buttonsStack.orientation = .horizontal
         buttonsStack.spacing = DesignTokens.Spacing.md
         
-        let requestPermissionButton = createButton(title: "Request Permission") { [weak self] in
+        let requestPermissionButton = SWButton(title: "Request Permission", style: .secondary) { [weak self] in
             self?.requestAccessibilityPermission()
         }
         
-        let accessibilityButton = createButton(title: "Open Accessibility Settings") { [weak self] in
+        let accessibilityButton = SWButton(title: "Open Accessibility Settings", style: .secondary) { [weak self] in
             self?.openAccessibilitySettings()
         }
         
-        let preferencesButton = createButton(title: "Open Preferences") { [weak self] in
+        let preferencesButton = SWButton(title: "Open Preferences", style: .secondary) { [weak self] in
             self?.openPreferences()
         }
         
@@ -82,7 +82,7 @@ final class SetupView: NSView {
         
         let statusStack = createStatusStack()
         
-        let doneButton = createButton(title: "I'm Done") { [weak self] in
+        let doneButton = SWButton(title: "I'm Done", style: .primary) { [weak self] in
             self?.onComplete?()
         }
         
@@ -261,37 +261,5 @@ final class SetupView: NSView {
     
     private func openPreferences() {
         PreferencesLauncher.openPreferences()
-    }
-    
-    private func createButton(title: String, action: @escaping () -> Void) -> NSButton {
-        let button = SetupActionButton(title: title, action: action)
-        return button
-    }
-}
-
-private class SetupActionButton: NSButton {
-    
-    private var actionHandler: (() -> Void)?
-    
-    convenience init(title: String, action: @escaping () -> Void) {
-        self.init(frame: .zero)
-        self.title = title
-        self.actionHandler = action
-        setup()
-    }
-    
-    private func setup() {
-        bezelStyle = .rounded
-        isBordered = true
-        font = DesignTokens.Typography.body(size: 13)
-        target = self
-        self.action = #selector(buttonClicked)
-        
-        wantsLayer = true
-        layer?.cornerRadius = DesignTokens.CornerRadius.medium
-    }
-    
-    @objc private func buttonClicked() {
-        actionHandler?()
     }
 }

@@ -71,4 +71,109 @@ extension NSColor {
     static var swAccent: NSColor { NSColor(hex: DesignTokens.Colors.accent) }
     static var swError: NSColor { NSColor(hex: DesignTokens.Colors.error) }
     static var swSuccess: NSColor { NSColor(hex: DesignTokens.Colors.success) }
+    static var swBorder: NSColor { NSColor(hex: "#2A2A2A") }
+}
+
+// MARK: - Minimal Button Style
+
+class SWButton: NSButton {
+    
+    enum Style {
+        case primary
+        case secondary
+    }
+    
+    private let style: Style
+    private var actionHandler: (() -> Void)?
+    private var trackingArea: NSTrackingArea?
+    private var isHovered = false {
+        didSet { updateAppearance() }
+    }
+    
+    init(title: String, style: Style = .secondary, action: (() -> Void)? = nil) {
+        self.style = style
+        self.actionHandler = action
+        super.init(frame: .zero)
+        self.title = title
+        setup()
+    }
+    
+    required init?(coder: NSCoder) {
+        self.style = .secondary
+        super.init(coder: coder)
+        setup()
+    }
+    
+    private func setup() {
+        isBordered = false
+        bezelStyle = .inline
+        font = DesignTokens.Typography.body(size: 14)
+        
+        wantsLayer = true
+        layer?.cornerRadius = DesignTokens.CornerRadius.medium
+        layer?.borderWidth = 1
+        
+        target = self
+        action = #selector(buttonClicked)
+        
+        setContentHuggingPriority(.defaultLow, for: .horizontal)
+        updateAppearance()
+    }
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        if let area = trackingArea {
+            addTrackingArea(area)
+        }
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+    }
+    
+    private func updateAppearance() {
+        switch style {
+        case .primary:
+            layer?.backgroundColor = isHovered 
+                ? NSColor.swText.withAlphaComponent(0.9).cgColor 
+                : NSColor.swText.cgColor
+            layer?.borderColor = NSColor.swText.cgColor
+            contentTintColor = NSColor.swBackground
+        case .secondary:
+            layer?.backgroundColor = isHovered 
+                ? NSColor.swSurfaceHover.cgColor 
+                : NSColor.clear.cgColor
+            layer?.borderColor = NSColor.swBorder.cgColor
+            contentTintColor = NSColor.swText
+        }
+    }
+    
+    override var intrinsicContentSize: NSSize {
+        let textSize = super.intrinsicContentSize
+        return NSSize(
+            width: max(textSize.width + 32, 120),
+            height: 44
+        )
+    }
+    
+    @objc private func buttonClicked() {
+        actionHandler?()
+    }
+    
+    func setAction(_ handler: @escaping () -> Void) {
+        actionHandler = handler
+    }
 }
