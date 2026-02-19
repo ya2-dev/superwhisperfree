@@ -38,7 +38,7 @@ final class ModelSelectionView: NSView {
         }
     }
     private var selectedModelId: String = "parakeet-v2"
-    private var modelCards: [String: ModelCardView] = [:]
+    private var modelCards: [String: OnboardingModelCardView] = [:]
     
     private let languageSegment = NSSegmentedControl()
     private let modelsStackView = NSStackView()
@@ -154,7 +154,7 @@ final class ModelSelectionView: NSView {
         
         for model in filteredModels {
             let isRecommended = model.id == recommendedId
-            let card = ModelCardView(model: model, isRecommended: isRecommended)
+            let card = OnboardingModelCardView(model: model, isRecommended: isRecommended)
             card.isSelected = model.id == selectedModelId
             card.onSelect = { [weak self] in
                 self?.selectModel(model.id)
@@ -287,9 +287,10 @@ final class ModelSelectionView: NSView {
         errorLabel.stringValue = "Error: \(message)"
         isDownloading = false
         
-        for button in radioButtons.values {
-            button.isEnabled = true
+        for card in modelCards.values {
+            card.isEnabled = true
         }
+        languageSegment.isEnabled = true
     }
     
     private func resetUIState() {
@@ -301,8 +302,149 @@ final class ModelSelectionView: NSView {
         statusLabel.isHidden = true
         errorLabel.isHidden = true
         
-        for button in radioButtons.values {
-            button.isEnabled = true
+        for card in modelCards.values {
+            card.isEnabled = true
         }
+        languageSegment.isEnabled = true
+    }
+}
+
+// MARK: - Onboarding Model Card View
+
+final class OnboardingModelCardView: NSView {
+    
+    var onSelect: (() -> Void)?
+    
+    var isSelected: Bool = false {
+        didSet {
+            updateAppearance()
+        }
+    }
+    
+    var isEnabled: Bool = true {
+        didSet {
+            alphaValue = isEnabled ? 1.0 : 0.5
+        }
+    }
+    
+    private let model: ModelInfo
+    private let isRecommended: Bool
+    
+    init(model: ModelInfo, isRecommended: Bool) {
+        self.model = model
+        self.isRecommended = isRecommended
+        super.init(frame: .zero)
+        setup()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setup() {
+        wantsLayer = true
+        layer?.cornerRadius = DesignTokens.CornerRadius.medium
+        layer?.borderWidth = 2
+        updateAppearance()
+        
+        let contentStack = NSStackView()
+        contentStack.orientation = .vertical
+        contentStack.alignment = .leading
+        contentStack.spacing = 4
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let topRow = NSStackView()
+        topRow.orientation = .horizontal
+        topRow.alignment = .centerY
+        topRow.spacing = DesignTokens.Spacing.sm
+        
+        let nameLabel = NSTextField(labelWithString: model.name)
+        nameLabel.font = DesignTokens.Typography.heading(size: 14)
+        nameLabel.textColor = NSColor.swText
+        
+        topRow.addArrangedSubview(nameLabel)
+        
+        if isRecommended {
+            let badge = createBadge(text: "Recommended", backgroundColor: NSColor.swSuccess.withAlphaComponent(0.2), textColor: NSColor.swSuccess)
+            topRow.addArrangedSubview(badge)
+        }
+        
+        let sizeBadge = createBadge(text: model.size, backgroundColor: NSColor.swSurfaceHover, textColor: NSColor.swTextSecondary)
+        topRow.addArrangedSubview(sizeBadge)
+        
+        let speedStack = NSStackView()
+        speedStack.orientation = .horizontal
+        speedStack.alignment = .centerY
+        speedStack.spacing = 2
+        
+        let speedIcons = String(repeating: "⚡", count: model.speedIcons)
+        let speedIconLabel = NSTextField(labelWithString: speedIcons)
+        speedIconLabel.font = DesignTokens.Typography.body(size: 11)
+        speedIconLabel.textColor = NSColor.swAccent
+        
+        let speedTextLabel = NSTextField(labelWithString: model.speed)
+        speedTextLabel.font = DesignTokens.Typography.body(size: 12)
+        speedTextLabel.textColor = NSColor.swTextSecondary
+        
+        speedStack.addArrangedSubview(speedIconLabel)
+        speedStack.addArrangedSubview(speedTextLabel)
+        topRow.addArrangedSubview(speedStack)
+        
+        let descriptionLabel = NSTextField(labelWithString: model.description)
+        descriptionLabel.font = DesignTokens.Typography.body(size: 12)
+        descriptionLabel.textColor = NSColor.swTextSecondary
+        
+        contentStack.addArrangedSubview(topRow)
+        contentStack.addArrangedSubview(descriptionLabel)
+        
+        addSubview(contentStack)
+        
+        NSLayoutConstraint.activate([
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: DesignTokens.Spacing.md),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: DesignTokens.Spacing.md),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -DesignTokens.Spacing.md),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -DesignTokens.Spacing.md)
+        ])
+        
+        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(cardClicked))
+        addGestureRecognizer(clickGesture)
+    }
+    
+    private func updateAppearance() {
+        if isSelected {
+            layer?.borderColor = NSColor.swAccent.cgColor
+            layer?.backgroundColor = NSColor.swAccent.withAlphaComponent(0.1).cgColor
+        } else {
+            layer?.borderColor = NSColor.clear.cgColor
+            layer?.backgroundColor = NSColor.swSurfaceHover.cgColor
+        }
+    }
+    
+    @objc private func cardClicked() {
+        guard isEnabled else { return }
+        onSelect?()
+    }
+    
+    private func createBadge(text: String, backgroundColor: NSColor, textColor: NSColor) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = backgroundColor.cgColor
+        container.layer?.cornerRadius = DesignTokens.CornerRadius.small
+        
+        let label = NSTextField(labelWithString: text)
+        label.font = DesignTokens.Typography.body(size: 11)
+        label.textColor = textColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        
+        container.addSubview(label)
+        
+        NSLayoutConstraint.activate([
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2)
+        ])
+        
+        return container
     }
 }
