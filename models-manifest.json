@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "lastUpdated": "2025-02-19",
+  "models": [
+    {
+      "id": "parakeet",
+      "name": "Parakeet v2",
+      "size": "630 MB",
+      "sha": "a1b2c3d4e5f6789012345678901234567890abcd",
+      "recommended": true,
+      "multilingual": false,
+      "huggingfaceId": "nvidia/parakeet-tdt-0.6b-v2",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2",
+      "description": "Best for English - extremely fast and accurate"
+    },
+    {
+      "id": "whisper-tiny",
+      "name": "Whisper Tiny",
+      "size": "75 MB",
+      "sha": "b2c3d4e5f6789012345678901234567890abcde1",
+      "recommended": false,
+      "multilingual": true,
+      "huggingfaceId": "openai/whisper-tiny",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.en.tar.bz2",
+      "description": "Ultra-light, basic accuracy"
+    },
+    {
+      "id": "whisper-base",
+      "name": "Whisper Base",
+      "size": "150 MB",
+      "sha": "c3d4e5f6789012345678901234567890abcdef12",
+      "recommended": false,
+      "multilingual": true,
+      "huggingfaceId": "openai/whisper-base",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.en.tar.bz2",
+      "description": "Good balance of speed and accuracy"
+    },
+    {
+      "id": "whisper-small",
+      "name": "Whisper Small",
+      "size": "500 MB",
+      "sha": "d4e5f6789012345678901234567890abcdef1234",
+      "recommended": false,
+      "multilingual": true,
+      "huggingfaceId": "openai/whisper-small",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.en.tar.bz2",
+      "description": "Higher accuracy, moderate speed"
+    }
+  ]
+}
