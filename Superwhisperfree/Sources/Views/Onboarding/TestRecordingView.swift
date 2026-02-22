@@ -161,6 +161,14 @@ final class TestRecordingView: NSView {
                 if flags.contains(.option) {
                     return true
                 }
+            case "rightcmd", "rightcommand":
+                if flags.contains(.command) && event.keyCode == 54 {
+                    return true
+                }
+            case "leftcmd", "leftcommand":
+                if flags.contains(.command) && event.keyCode == 55 {
+                    return true
+                }
             case "control", "ctrl":
                 if flags.contains(.control) {
                     return true

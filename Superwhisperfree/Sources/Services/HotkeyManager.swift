@@ -11,6 +11,8 @@ final class HotkeyManager {
     private var keyMonitor: Any?
     private var flagsMonitor: Any?
     private var isHotkeyPressed = false
+    private var permissionCheckTimer: Timer?
+    private var isMonitoringActive = false
     
     private init() {}
     
@@ -24,8 +26,11 @@ final class HotkeyManager {
     }
     
     func start() {
+        stopPermissionCheckTimer()
+        
         guard hasAccessibilityPermission else {
             requestAccessibilityPermission()
+            startPermissionCheckTimer()
             return
         }
         
@@ -42,9 +47,28 @@ final class HotkeyManager {
         } else {
             startKeyMonitoring(keyCode: hotkeyConfig.keyCode, modifiers: hotkeyConfig.modifiers)
         }
+        
+        isMonitoringActive = true
+    }
+    
+    private func startPermissionCheckTimer() {
+        permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            if self.hasAccessibilityPermission {
+                self.stopPermissionCheckTimer()
+                self.start()
+            }
+        }
+    }
+    
+    private func stopPermissionCheckTimer() {
+        permissionCheckTimer?.invalidate()
+        permissionCheckTimer = nil
     }
     
     func stop() {
+        stopPermissionCheckTimer()
+        
         if let monitor = keyMonitor {
             NSEvent.removeMonitor(monitor)
             keyMonitor = nil
@@ -54,6 +78,12 @@ final class HotkeyManager {
             flagsMonitor = nil
         }
         isHotkeyPressed = false
+        isMonitoringActive = false
+    }
+    
+    func restart() {
+        stop()
+        start()
     }
     
     private func startRightAltMonitoring() {

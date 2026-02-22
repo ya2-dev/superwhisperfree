@@ -27,6 +27,10 @@ final class RecordingCoordinator {
         cancelRecording()
     }
     
+    func restartHotkey() {
+        hotkeyManager.restart()
+    }
+    
     private func setupHotkeyCallbacks() {
         hotkeyManager.onHotkeyDown = { [weak self] in
             self?.handleHotkeyDown()
