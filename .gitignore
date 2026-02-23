@@ -73,3 +73,4 @@ htmlcov/
 *.temp
 .tmp/
 .temp/
+vendor/sherpa-onnx
