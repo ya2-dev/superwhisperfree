@@ -7,11 +7,32 @@ struct DailyStat: Codable, Equatable {
     var totalDurationSec: Double
 }
 
+struct TranscriptionRecord: Codable, Identifiable, Equatable {
+    let id: UUID
+    let text: String
+    let wordCount: Int
+    let durationSeconds: Double
+    let timestamp: Date
+    let wpm: Int
+    
+    init(text: String, durationSeconds: Double) {
+        self.id = UUID()
+        self.text = text
+        self.wordCount = text.split(separator: " ").count
+        self.durationSeconds = durationSeconds
+        self.timestamp = Date()
+        
+        let minutes = durationSeconds / 60.0
+        self.wpm = minutes > 0 ? Int(Double(self.wordCount) / minutes) : 0
+    }
+}
+
 struct Analytics: Codable {
     var typingWPM: Int?
     var dailyStats: [DailyStat]
+    var recentTranscriptions: [TranscriptionRecord]
     
-    static let empty = Analytics(typingWPM: nil, dailyStats: [])
+    static let empty = Analytics(typingWPM: nil, dailyStats: [], recentTranscriptions: [])
 }
 
 final class AnalyticsManager {
@@ -83,6 +104,21 @@ final class AnalyticsManager {
         save()
     }
     
+    func addTranscription(text: String, durationSeconds: Double) {
+        let record = TranscriptionRecord(text: text, durationSeconds: durationSeconds)
+        analytics.recentTranscriptions.insert(record, at: 0)
+        
+        if analytics.recentTranscriptions.count > 50 {
+            analytics.recentTranscriptions = Array(analytics.recentTranscriptions.prefix(50))
+        }
+        
+        addDictation(words: record.wordCount, durationSeconds: durationSeconds)
+    }
+    
+    var recentTranscriptions: [TranscriptionRecord] {
+        analytics.recentTranscriptions
+    }
+    
     func setTypingWPM(_ wpm: Int) {
         analytics.typingWPM = wpm
         save()
@@ -106,8 +142,14 @@ final class AnalyticsManager {
     
     var speakingWPM: Int {
         let totalMinutes = totalDurationSeconds / 60.0
-        guard totalMinutes > 0 else { return 150 }
+        guard totalMinutes > 0 else { return 0 }
         return Int(Double(totalWords) / totalMinutes)
+    }
+    
+    var averageDictationWPM: Double {
+        let totalMinutes = totalDurationSeconds / 60.0
+        guard totalMinutes > 0 else { return 0 }
+        return Double(totalWords) / totalMinutes
     }
     
     func minutesSaved(benchmarkWPM: Int = 45) -> Double {

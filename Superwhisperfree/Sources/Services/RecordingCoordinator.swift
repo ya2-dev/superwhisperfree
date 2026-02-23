@@ -12,6 +12,7 @@ final class RecordingCoordinator {
     
     private var currentRecordingURL: URL?
     private var isRecording = false
+    private var recordingStartTime: Date?
     
     private init() {
         setupHotkeyCallbacks()
@@ -19,7 +20,10 @@ final class RecordingCoordinator {
     }
     
     func start() {
+        print("RecordingCoordinator: start() called")
+        transcriptionClient.start()
         hotkeyManager.start()
+        print("RecordingCoordinator: started successfully")
     }
     
     func stop() {
@@ -48,19 +52,25 @@ final class RecordingCoordinator {
     }
     
     private func handleHotkeyDown() {
+        print("RecordingCoordinator: handleHotkeyDown() called, isRecording=\(isRecording)")
         guard !isRecording else { return }
         
         isRecording = true
+        recordingStartTime = Date()
         postRecordingStateNotification(isRecording: true)
         
         DispatchQueue.main.async { [weak self] in
+            print("RecordingCoordinator: Showing overlay and starting recording")
             self?.overlay.setState(.recording)
             self?.overlay.showNearCursor()
         }
         
         do {
             currentRecordingURL = try audioRecorder.startRecording()
+            print("RecordingCoordinator: Recording started at \(currentRecordingURL?.path ?? "nil")")
         } catch {
+            print("RecordingCoordinator: Failed to start recording - \(error)")
+            recordingStartTime = nil
             handleError("Failed to start recording")
         }
     }
@@ -69,6 +79,8 @@ final class RecordingCoordinator {
         guard isRecording else { return }
         
         isRecording = false
+        let recordingDuration = recordingStartTime.map { Date().timeIntervalSince($0) } ?? 0
+        recordingStartTime = nil
         postRecordingStateNotification(isRecording: false)
         
         guard let recordingURL = audioRecorder.stopRecording() else {
@@ -85,14 +97,14 @@ final class RecordingCoordinator {
         transcriptionClient.transcribe(audioPath: recordingURL.path) { [weak self] result in
             switch result {
             case .success(let text):
-                self?.handleTranscriptionSuccess(text)
+                self?.handleTranscriptionSuccess(text, duration: recordingDuration)
             case .failure(let error):
                 self?.handleError(error.localizedDescription)
             }
         }
     }
     
-    private func handleTranscriptionSuccess(_ text: String) {
+    private func handleTranscriptionSuccess(_ text: String, duration: TimeInterval) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedText.isEmpty else {
@@ -102,7 +114,8 @@ final class RecordingCoordinator {
         
         overlay.setState(.success)
         
-        updateAnalytics(text: trimmedText)
+        AnalyticsManager.shared.addTranscription(text: trimmedText, durationSeconds: duration)
+        print("RecordingCoordinator: Added transcription - \(trimmedText.prefix(50))... duration: \(duration)s")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.pasteService.pasteText(trimmedText)
@@ -140,11 +153,7 @@ final class RecordingCoordinator {
     private func cleanup() {
         audioRecorder.cleanup()
         currentRecordingURL = nil
-    }
-    
-    private func updateAnalytics(text: String) {
-        let wordCount = text.split(separator: " ").count
-        SettingsManager.shared.incrementWordCount(by: wordCount)
+        recordingStartTime = nil
     }
     
     private func postRecordingStateNotification(isRecording: Bool) {

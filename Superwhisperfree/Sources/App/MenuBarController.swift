@@ -100,6 +100,16 @@ final class MenuBarController: NSObject {
         
         menu.addItem(NSMenuItem.separator())
         
+        let accessibilityItem = NSMenuItem(
+            title: "Grant Accessibility Permission...",
+            action: #selector(openAccessibilitySettings),
+            keyEquivalent: ""
+        )
+        accessibilityItem.target = self
+        menu.addItem(accessibilityItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         let quitItem = NSMenuItem(
             title: "Quit Superwhisperfree",
             action: #selector(quitApp),
@@ -132,6 +142,10 @@ final class MenuBarController: NSObject {
     
     @objc private func showWelcome() {
         delegate?.menuBarControllerDidRequestWelcome(self)
+    }
+    
+    @objc private func openAccessibilitySettings() {
+        HotkeyManager.shared.openAccessibilityPreferences()
     }
     
     @objc private func quitApp() {

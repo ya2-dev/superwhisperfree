@@ -12,13 +12,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordingStateObserver: NSObjectProtocol?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        print("AppDelegate: applicationDidFinishLaunching")
         setupMenuBar()
         setupNotificationObservers()
         
         let onboardingComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")
+        print("AppDelegate: onboardingComplete = \(onboardingComplete)")
         if onboardingComplete {
+            print("AppDelegate: Starting recording services")
             startRecordingServices()
         } else {
+            print("AppDelegate: Showing onboarding")
             showOnboarding()
         }
     }

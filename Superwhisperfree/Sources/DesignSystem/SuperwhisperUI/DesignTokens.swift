@@ -156,7 +156,7 @@ class SWButton: NSButton {
             layer?.backgroundColor = isHovered 
                 ? NSColor.swSurfaceHover.cgColor 
                 : NSColor.clear.cgColor
-            layer?.borderColor = NSColor.swBorder.cgColor
+            layer?.borderColor = NSColor.swText.cgColor
             contentTintColor = NSColor.swText
         }
     }

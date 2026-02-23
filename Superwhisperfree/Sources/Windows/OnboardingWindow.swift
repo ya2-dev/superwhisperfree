@@ -315,6 +315,10 @@ final class OnboardingWindowController: NSWindowController {
 private class ActionButton: NSButton {
     
     private var actionHandler: (() -> Void)?
+    private var trackingArea: NSTrackingArea?
+    private var isHovered = false {
+        didSet { updateAppearance() }
+    }
     
     convenience init(title: String, action: @escaping () -> Void) {
         self.init(frame: .zero)
@@ -324,14 +328,47 @@ private class ActionButton: NSButton {
     }
     
     private func setup() {
-        bezelStyle = .rounded
-        isBordered = true
+        isBordered = false
+        bezelStyle = .inline
         font = DesignTokens.Typography.body(size: 14)
         target = self
         self.action = #selector(buttonClicked)
         
         wantsLayer = true
         layer?.cornerRadius = DesignTokens.CornerRadius.medium
+        layer?.borderWidth = 1
+        
+        updateAppearance()
+    }
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        if let area = trackingArea {
+            addTrackingArea(area)
+        }
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+    }
+    
+    private func updateAppearance() {
+        layer?.backgroundColor = isHovered ? NSColor.swText.cgColor : NSColor.clear.cgColor
+        layer?.borderColor = NSColor.swText.cgColor
+        contentTintColor = isHovered ? NSColor.swBackground : NSColor.swText
     }
     
     @objc private func buttonClicked() {

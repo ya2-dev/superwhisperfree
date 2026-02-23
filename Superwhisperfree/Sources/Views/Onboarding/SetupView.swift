@@ -1,5 +1,6 @@
 import Cocoa
 import ApplicationServices
+import AVFoundation
 
 final class SetupView: NSView {
     
@@ -7,8 +8,10 @@ final class SetupView: NSView {
     
     private var statusTimer: Timer?
     private var hasPromptedForAccessibility = false
+    private var hasPromptedForMicrophone = false
     private var accessibilityGrantedAtStartup: Bool = false
     
+    private let microphoneStatusLabel = NSTextField(labelWithString: "⏳ Not granted")
     private let accessibilityStatusLabel = NSTextField(labelWithString: "⏳ Not granted")
     private let modelStatusLabel = NSTextField(labelWithString: "⏳ Model not downloaded")
     private let hotkeyStatusLabel = NSTextField(labelWithString: "⏳ Hotkey not set")
@@ -29,10 +32,20 @@ final class SetupView: NSView {
     
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window != nil && !hasPromptedForAccessibility && !AXIsProcessTrusted() {
-            hasPromptedForAccessibility = true
-            requestAccessibilityPermission()
+        if window != nil {
+            if !hasPromptedForMicrophone {
+                hasPromptedForMicrophone = true
+                requestMicrophonePermission()
+            }
+            if !hasPromptedForAccessibility && !AXIsProcessTrusted() {
+                hasPromptedForAccessibility = true
+                requestAccessibilityPermission()
+            }
         }
+    }
+    
+    private func requestMicrophonePermission() {
+        AVCaptureDevice.requestAccess(for: .audio) { _ in }
     }
     
     private func requestAccessibilityPermission() {
@@ -54,7 +67,7 @@ final class SetupView: NSView {
         titleLabel.textColor = NSColor.swText
         titleLabel.alignment = .center
         
-        let descriptionLabel = NSTextField(wrappingLabelWithString: "Grant accessibility permission and configure your hotkey to get started.")
+        let descriptionLabel = NSTextField(wrappingLabelWithString: "Grant microphone and accessibility permissions to get started.")
         descriptionLabel.font = DesignTokens.Typography.body(size: 14)
         descriptionLabel.textColor = NSColor.swTextSecondary
         descriptionLabel.alignment = .center
@@ -118,10 +131,12 @@ final class SetupView: NSView {
         stackView.alignment = .leading
         stackView.spacing = DesignTokens.Spacing.sm
         
+        configureStatusLabel(microphoneStatusLabel)
         configureStatusLabel(accessibilityStatusLabel)
         configureStatusLabel(modelStatusLabel)
         configureStatusLabel(hotkeyStatusLabel)
         
+        stackView.addArrangedSubview(createStatusRow(label: "Microphone:", statusLabel: microphoneStatusLabel))
         stackView.addArrangedSubview(createStatusRow(label: "Accessibility:", statusLabel: accessibilityStatusLabel))
         stackView.addArrangedSubview(createStatusRow(label: "Model:", statusLabel: modelStatusLabel))
         stackView.addArrangedSubview(createStatusRow(label: "Hotkey:", statusLabel: hotkeyStatusLabel))
@@ -176,9 +191,27 @@ final class SetupView: NSView {
     }
     
     private func updateStatuses() {
+        updateMicrophoneStatus()
         updateAccessibilityStatus()
         updateModelStatus()
         updateHotkeyStatus()
+    }
+    
+    private func updateMicrophoneStatus() {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            microphoneStatusLabel.stringValue = "✓ Microphone granted"
+            microphoneStatusLabel.textColor = NSColor.swSuccess
+        case .denied, .restricted:
+            microphoneStatusLabel.stringValue = "✗ Denied (open System Settings)"
+            microphoneStatusLabel.textColor = NSColor.swError
+        case .notDetermined:
+            microphoneStatusLabel.stringValue = "⏳ Not granted"
+            microphoneStatusLabel.textColor = NSColor.swTextSecondary
+        @unknown default:
+            microphoneStatusLabel.stringValue = "⏳ Unknown"
+            microphoneStatusLabel.textColor = NSColor.swTextSecondary
+        }
     }
     
     private func updateAccessibilityStatus() {

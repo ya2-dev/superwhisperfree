@@ -39,7 +39,7 @@ final class TypingTestWindowController: NSWindowController {
     }
 }
 
-final class TypingTestView: NSView {
+final class TypingTestView: NSView, NSTextViewDelegate {
     
     private let sampleTexts = [
         "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
@@ -59,8 +59,11 @@ final class TypingTestView: NSView {
     
     private var timer: Timer?
     private var secondsRemaining: Int = 60
+    private var totalTestTime: Int = 60
     private var isTestRunning = false
     private var currentSampleText: String = ""
+    private var sampleWords: [String] = []
+    private var startTime: Date?
     
     var onComplete: ((Int) -> Void)?
     
@@ -109,6 +112,7 @@ final class TypingTestView: NSView {
         inputTextView = inputScrollView.documentView as? NSTextView
         inputTextView.font = DesignTokens.Typography.body(size: 14)
         inputTextView.isEditable = false
+        inputTextView.delegate = self
         
         startButton = createActionButton(title: "Start") { [weak self] in
             self?.startTest()
@@ -201,6 +205,7 @@ final class TypingTestView: NSView {
     private func startTest() {
         isTestRunning = true
         secondsRemaining = 60
+        totalTestTime = 60
         inputTextView.string = ""
         inputTextView.isEditable = true
         window?.makeFirstResponder(inputTextView)
@@ -210,7 +215,10 @@ final class TypingTestView: NSView {
         doneButton.isHidden = true
         
         currentSampleText = sampleTexts.randomElement() ?? sampleTexts[0]
-        sampleTextView.string = currentSampleText
+        sampleWords = currentSampleText.components(separatedBy: " ")
+        startTime = Date()
+        
+        updateSampleTextHighlighting()
         
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tick()
@@ -222,32 +230,129 @@ final class TypingTestView: NSView {
         timerLabel.stringValue = "\(secondsRemaining)"
         
         if secondsRemaining <= 0 {
-            endTest()
+            endTest(completedEarly: false)
         }
     }
     
-    private func endTest() {
+    private func endTest(completedEarly: Bool = false) {
         timer?.invalidate()
         timer = nil
         isTestRunning = false
         inputTextView.isEditable = false
         
-        let wpm = calculateWPM()
+        let timeTaken: Int
+        if completedEarly, let start = startTime {
+            timeTaken = Int(Date().timeIntervalSince(start))
+        } else {
+            timeTaken = totalTestTime - secondsRemaining
+        }
         
-        AnalyticsManager.shared.setTypingWPM(wpm)
+        let stats = calculateStats(timeTaken: timeTaken)
         
-        resultLabel.stringValue = "Your typing speed: \(wpm) WPM"
+        AnalyticsManager.shared.setTypingWPM(stats.wpm)
+        
+        resultLabel.stringValue = """
+        WPM: \(stats.wpm) | Accuracy: \(stats.accuracy)% | Time: \(timeTaken)s
+        """
         resultLabel.isHidden = false
         doneButton.isHidden = false
-        instructionLabel.stringValue = "Test complete! Your result has been saved."
+        instructionLabel.stringValue = completedEarly 
+            ? "Excellent! You completed the test early!" 
+            : "Test complete! Your result has been saved."
         
-        onComplete?(wpm)
+        onComplete?(stats.wpm)
     }
     
-    private func calculateWPM() -> Int {
+    private func calculateStats(timeTaken: Int) -> (wpm: Int, accuracy: Int) {
+        let typedWords = inputTextView.string.components(separatedBy: " ").filter { !$0.isEmpty }
+        let totalTypedWords = typedWords.count
+        
+        var correctWords = 0
+        for (index, typedWord) in typedWords.enumerated() {
+            if index < sampleWords.count && typedWord == sampleWords[index] {
+                correctWords += 1
+            }
+        }
+        
+        let effectiveTime = max(timeTaken, 1)
+        let wpm = Int(Double(correctWords) / (Double(effectiveTime) / 60.0))
+        
+        let accuracy: Int
+        if totalTypedWords > 0 {
+            accuracy = Int((Double(correctWords) / Double(totalTypedWords)) * 100)
+        } else {
+            accuracy = 0
+        }
+        
+        return (wpm, accuracy)
+    }
+    
+    private func updateSampleTextHighlighting() {
         let typedText = inputTextView.string
-        let words = typedText.split(separator: " ").count
-        return words
+        let typedWords = typedText.components(separatedBy: " ")
+        
+        let attributedString = NSMutableAttributedString()
+        
+        for (index, sampleWord) in sampleWords.enumerated() {
+            let wordWithSpace = index < sampleWords.count - 1 ? sampleWord + " " : sampleWord
+            
+            let attributes: [NSAttributedString.Key: Any]
+            
+            if index < typedWords.count - 1 {
+                if typedWords[index] == sampleWord {
+                    attributes = [
+                        .foregroundColor: NSColor.swSuccess,
+                        .font: DesignTokens.Typography.body(size: 14)
+                    ]
+                } else {
+                    attributes = [
+                        .foregroundColor: NSColor.swError,
+                        .font: DesignTokens.Typography.body(size: 14),
+                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                        .strikethroughColor: NSColor.swError
+                    ]
+                }
+            } else if index == typedWords.count - 1 {
+                attributes = [
+                    .foregroundColor: NSColor.swAccent,
+                    .font: DesignTokens.Typography.body(size: 14),
+                    .backgroundColor: NSColor.swSurfaceHover
+                ]
+            } else {
+                attributes = [
+                    .foregroundColor: NSColor.swTextSecondary,
+                    .font: DesignTokens.Typography.body(size: 14)
+                ]
+            }
+            
+            attributedString.append(NSAttributedString(string: wordWithSpace, attributes: attributes))
+        }
+        
+        sampleTextView.textStorage?.setAttributedString(attributedString)
+    }
+    
+    private func checkForCompletion() {
+        let typedWords = inputTextView.string.components(separatedBy: " ").filter { !$0.isEmpty }
+        
+        guard typedWords.count >= sampleWords.count else { return }
+        
+        var allCorrect = true
+        for (index, sampleWord) in sampleWords.enumerated() {
+            if index >= typedWords.count || typedWords[index] != sampleWord {
+                allCorrect = false
+                break
+            }
+        }
+        
+        if allCorrect {
+            endTest(completedEarly: true)
+        }
+    }
+    
+    func textDidChange(_ notification: Notification) {
+        guard isTestRunning else { return }
+        updateSampleTextHighlighting()
+        checkForCompletion()
     }
     
     private func finishAndClose() {
