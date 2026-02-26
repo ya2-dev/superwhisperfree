@@ -269,5 +269,6 @@ final class LanguagePreferencesView: NSView {
         SettingsManager.shared.settings.languageMode = languageMode
         SettingsManager.shared.settings.selectedLanguage = selectedLanguage
         SettingsManager.shared.save()
+        NotificationCenter.default.post(name: .languageSettingsDidChange, object: nil)
     }
 }

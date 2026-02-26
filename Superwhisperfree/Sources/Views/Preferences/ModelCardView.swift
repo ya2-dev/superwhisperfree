@@ -8,10 +8,13 @@ protocol ModelCardViewDelegate: AnyObject {
 struct ModelCardData {
     let id: String
     let name: String
+    let exactModelName: String
     let size: String
+    let ramUsageMB: Int
     let description: String
     let isRecommended: Bool
     let isMultilingual: Bool
+    let exceedsRAM: Bool
     var isDownloaded: Bool
 }
 
@@ -29,12 +32,15 @@ final class ModelCardView: NSView {
     
     private let containerView = NSView()
     private let nameLabel = NSTextField(labelWithString: "")
+    private let exactNameLabel = NSTextField(labelWithString: "")
     private let sizeLabel = NSTextField(labelWithString: "")
+    private let ramLabel = NSTextField(labelWithString: "")
     private let descriptionLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
     private let downloadButton = NSButton()
     private let recommendedBadge = NSTextField(labelWithString: "Recommended")
     private let multilingualBadge = NSTextField(labelWithString: "Multilingual")
+    private let ramWarningLabel = NSTextField(labelWithString: "")
     
     private var trackingArea: NSTrackingArea?
     
@@ -63,6 +69,12 @@ final class ModelCardView: NSView {
         containerView.addSubview(nameLabel)
         nameLabel.stringValue = modelData.name
         
+        exactNameLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        exactNameLabel.textColor = .swTextSecondary
+        exactNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(exactNameLabel)
+        exactNameLabel.stringValue = modelData.exactModelName
+        
         sizeLabel.font = DesignTokens.Typography.body(size: 12)
         sizeLabel.textColor = .swTextSecondary
         sizeLabel.wantsLayer = true
@@ -71,6 +83,25 @@ final class ModelCardView: NSView {
         sizeLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(sizeLabel)
         sizeLabel.stringValue = "  \(modelData.size)  "
+        
+        let ramText = modelData.ramUsageMB >= 1024
+            ? String(format: "~%.1f GB RAM", Double(modelData.ramUsageMB) / 1024.0)
+            : "~\(modelData.ramUsageMB) MB RAM"
+        ramLabel.font = DesignTokens.Typography.body(size: 11)
+        ramLabel.textColor = modelData.exceedsRAM ? .swError : .swTextSecondary
+        ramLabel.wantsLayer = true
+        ramLabel.layer?.backgroundColor = (modelData.exceedsRAM ? NSColor.swError : NSColor.swSurfaceHover).withAlphaComponent(0.15).cgColor
+        ramLabel.layer?.cornerRadius = DesignTokens.CornerRadius.small
+        ramLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(ramLabel)
+        ramLabel.stringValue = "  \(ramText)  "
+        
+        ramWarningLabel.font = DesignTokens.Typography.body(size: 11)
+        ramWarningLabel.textColor = .swError
+        ramWarningLabel.translatesAutoresizingMaskIntoConstraints = false
+        ramWarningLabel.isHidden = !modelData.exceedsRAM
+        ramWarningLabel.stringValue = "May slow down other apps on this Mac"
+        containerView.addSubview(ramWarningLabel)
         
         descriptionLabel.font = DesignTokens.Typography.body(size: 13)
         descriptionLabel.textColor = .swTextSecondary
@@ -86,7 +117,8 @@ final class ModelCardView: NSView {
         
         multilingualBadge.font = DesignTokens.Typography.body(size: 11)
         multilingualBadge.textColor = .swAccent
-        multilingualBadge.isHidden = !modelData.isMultilingual
+        multilingualBadge.stringValue = modelData.isMultilingual ? "Multilingual" : "English Only"
+        multilingualBadge.isHidden = false
         multilingualBadge.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(multilingualBadge)
         
@@ -116,16 +148,25 @@ final class ModelCardView: NSView {
             sizeLabel.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
             sizeLabel.leadingAnchor.constraint(equalTo: nameLabel.trailingAnchor, constant: DesignTokens.Spacing.sm),
             
+            ramLabel.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
+            ramLabel.leadingAnchor.constraint(equalTo: sizeLabel.trailingAnchor, constant: DesignTokens.Spacing.xs),
+            
             recommendedBadge.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
-            recommendedBadge.leadingAnchor.constraint(equalTo: sizeLabel.trailingAnchor, constant: DesignTokens.Spacing.sm),
+            recommendedBadge.leadingAnchor.constraint(equalTo: ramLabel.trailingAnchor, constant: DesignTokens.Spacing.sm),
             
             multilingualBadge.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
-            multilingualBadge.leadingAnchor.constraint(equalTo: modelData.isRecommended ? recommendedBadge.trailingAnchor : sizeLabel.trailingAnchor, constant: DesignTokens.Spacing.sm),
+            multilingualBadge.leadingAnchor.constraint(equalTo: modelData.isRecommended ? recommendedBadge.trailingAnchor : ramLabel.trailingAnchor, constant: DesignTokens.Spacing.sm),
             
-            descriptionLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: DesignTokens.Spacing.xs),
+            exactNameLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 2),
+            exactNameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: DesignTokens.Spacing.md),
+            
+            descriptionLabel.topAnchor.constraint(equalTo: exactNameLabel.bottomAnchor, constant: DesignTokens.Spacing.xs),
             descriptionLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: DesignTokens.Spacing.md),
             descriptionLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusLabel.leadingAnchor, constant: -DesignTokens.Spacing.md),
-            descriptionLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -DesignTokens.Spacing.md),
+            
+            ramWarningLabel.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 2),
+            ramWarningLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: DesignTokens.Spacing.md),
+            ramWarningLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -DesignTokens.Spacing.md),
             
             statusLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             statusLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -DesignTokens.Spacing.md),
@@ -134,7 +175,7 @@ final class ModelCardView: NSView {
             downloadButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -DesignTokens.Spacing.md),
         ])
         
-        heightAnchor.constraint(greaterThanOrEqualToConstant: 72).isActive = true
+        heightAnchor.constraint(greaterThanOrEqualToConstant: 84).isActive = true
     }
     
     private func updateDownloadStatus() {

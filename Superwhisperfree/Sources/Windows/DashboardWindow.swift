@@ -7,8 +7,8 @@ final class DashboardWindowController: NSWindowController {
     
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 720),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -17,7 +17,7 @@ final class DashboardWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor.swBackground
-        window.minSize = NSSize(width: 380, height: 500)
+        window.minSize = NSSize(width: 420, height: 580)
         
         self.init(window: window)
         

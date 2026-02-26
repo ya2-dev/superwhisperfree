@@ -3,6 +3,7 @@ import os.log
 
 extension Notification.Name {
     static let modelLoadingStateDidChange = Notification.Name("modelLoadingStateDidChange")
+    static let languageSettingsDidChange = Notification.Name("languageSettingsDidChange")
 }
 
 final class TranscriptionClient {
@@ -11,24 +12,45 @@ final class TranscriptionClient {
     
     private(set) var isModelLoaded = false
     private(set) var currentModelId: String?
+    private var currentLanguage: String?
     
-    private init() {}
+    private init() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLanguageChange),
+            name: .languageSettingsDidChange,
+            object: nil
+        )
+    }
     
-    /// Maps settings to the correct model ID for TranscriptionService
+    @objc private func handleLanguageChange() {
+        guard isModelLoaded || isLoading else { return }
+        logger.info("Language settings changed, reloading model")
+        stop()
+        start()
+    }
+    
     private func resolveModelId(modelType: String, modelSize: String) -> String {
         let normalizedType = modelType.lowercased()
-        
         if normalizedType == "parakeet" {
-            return "parakeet-v2"
+            return "parakeet"
+        } else if normalizedType == "parakeet-v3" {
+            return "parakeet-v3"
         } else {
-            let validSizes = ["tiny", "base", "small", "medium"]
+            let validSizes = ["tiny", "base", "small", "medium", "large-v3", "turbo", "distil-small", "distil-medium", "distil-large-v3.5"]
             let normalizedSize = modelSize.lowercased()
             let size = validSizes.contains(normalizedSize) ? normalizedSize : "base"
             return "whisper-\(size)"
         }
     }
     
-    /// Check if a model is loaded and ready for transcription
+    private func resolveLanguage() -> String? {
+        let settings = SettingsManager.shared.settings
+        let modelType = settings.modelType.lowercased()
+        guard modelType != "parakeet" && modelType != "parakeet-v3" else { return nil }
+        return settings.languageMode == "english" ? "en" : settings.selectedLanguage
+    }
+    
     var isReady: Bool {
         return isModelLoaded && currentModelId != nil
     }
@@ -46,28 +68,59 @@ final class TranscriptionClient {
     func start() {
         let settings = SettingsManager.shared.settings
         let modelId = resolveModelId(modelType: settings.modelType, modelSize: settings.modelSize)
+        let language = resolveLanguage()
         
-        logger.info("Loading model: \(modelId) (type: \(settings.modelType), size: \(settings.modelSize))")
+        logger.info("Loading model: \(modelId) (type: \(settings.modelType), size: \(settings.modelSize), lang: \(language ?? "n/a"))")
+        
+        if let language = language, language != "en", modelId.hasPrefix("whisper-") {
+            let multiModelId = "\(modelId)-multi"
+            if !ModelDownloader.isModelDownloaded(multiModelId) {
+                logger.info("Multilingual model not downloaded, downloading \(multiModelId)")
+                isLoading = true
+                postLoadingStateNotification()
+                ModelDownloader.shared.download(modelId: multiModelId, progress: { progress, status in
+                    self.logger.debug("Download progress: \(progress) - \(status)")
+                }, completion: { [weak self] result in
+                    guard let self = self else { return }
+                    switch result {
+                    case .success:
+                        self.logger.info("Multilingual model downloaded, loading...")
+                        self.loadModelAsync(modelId: modelId, language: language)
+                    case .failure(let error):
+                        self.logger.error("Failed to download multilingual model: \(error.localizedDescription)")
+                        self.isLoading = false
+                        self.isModelLoaded = false
+                        self.postLoadingStateNotification()
+                    }
+                })
+                return
+            }
+        }
         
         isLoading = true
         postLoadingStateNotification()
-        
+        loadModelAsync(modelId: modelId, language: language)
+    }
+    
+    private func loadModelAsync(modelId: String, language: String?) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
             do {
-                try TranscriptionService.shared.loadModel(modelId: modelId)
+                try TranscriptionService.shared.loadModel(modelId: modelId, language: language)
                 DispatchQueue.main.async {
                     self.currentModelId = modelId
+                    self.currentLanguage = language
                     self.isModelLoaded = true
                     self.isLoading = false
-                    self.logger.info("Model loaded successfully: \(modelId)")
+                    self.logger.info("Model loaded successfully: \(modelId) (lang: \(language ?? "n/a"))")
                     self.postLoadingStateNotification()
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.isModelLoaded = false
                     self.currentModelId = nil
+                    self.currentLanguage = nil
                     self.isLoading = false
                     self.logger.error("Failed to load model '\(modelId)': \(error.localizedDescription)")
                     self.postLoadingStateNotification()
@@ -83,6 +136,7 @@ final class TranscriptionClient {
         TranscriptionService.shared.unloadModel()
         isModelLoaded = false
         currentModelId = nil
+        currentLanguage = nil
     }
     
     func transcribe(audioPath: String, completion: @escaping (Result<String, Error>) -> Void) {

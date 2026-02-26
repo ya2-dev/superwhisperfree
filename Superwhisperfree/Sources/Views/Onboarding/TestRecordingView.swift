@@ -111,14 +111,42 @@ final class TestRecordingView: NSView {
         setupRecording()
     }
     
+    private var loadingObserver: NSObjectProtocol?
+    
     private func setupRecording() {
-        transcriptionClient.start()
-        
         audioRecorder = AudioRecorder()
         audioRecorder?.onAudioLevel = { [weak self] level in
             self?.waveformView.updateLevel(level)
         }
         
+        transcriptionClient.start()
+        
+        if transcriptionClient.isReady {
+            onModelReady()
+        } else {
+            statusLabel.stringValue = "Loading model..."
+            statusLabel.textColor = NSColor.swTextSecondary
+            
+            loadingObserver = NotificationCenter.default.addObserver(
+                forName: .modelLoadingStateDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self = self else { return }
+                if self.transcriptionClient.isReady {
+                    self.onModelReady()
+                }
+            }
+        }
+    }
+    
+    private func onModelReady() {
+        if let obs = loadingObserver {
+            NotificationCenter.default.removeObserver(obs)
+            loadingObserver = nil
+        }
+        statusLabel.stringValue = "Hold your hotkey to try recording"
+        statusLabel.textColor = NSColor.swTextSecondary
         setupKeyMonitor()
     }
     
@@ -282,6 +310,10 @@ final class TestRecordingView: NSView {
     }
     
     private func cleanup() {
+        if let obs = loadingObserver {
+            NotificationCenter.default.removeObserver(obs)
+            loadingObserver = nil
+        }
         if let monitor = keyDownMonitor {
             NSEvent.removeMonitor(monitor)
             keyDownMonitor = nil

@@ -22,7 +22,7 @@ final class OnboardingWindowController: NSWindowController {
     
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 540, height: 580),
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 700),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false

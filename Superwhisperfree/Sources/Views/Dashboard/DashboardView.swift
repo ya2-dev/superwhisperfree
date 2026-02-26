@@ -2,12 +2,19 @@ import Cocoa
 
 final class DashboardView: NSView {
     
-    private var minutesSavedLabel: NSTextField!
-    private var wordsLabel: NSTextField!
-    private var typingWPMLabel: NSTextField!
-    private var speakingWPMLabel: NSTextField!
+    private var heroValueLabel: NSTextField!
+    private var heroSubtitleLabel: NSTextField!
+    
+    private var wordsValueLabel: NSTextField!
+    private var sessionsValueLabel: NSTextField!
+    private var wpmValueLabel: NSTextField!
+    private var avgWordsValueLabel: NSTextField!
+    
     private var chartView: LineChartView!
     private var recentActivityList: RecentActivityListView!
+    
+    private var periodButtons: [NSButton] = []
+    private var selectedPeriod: StatPeriod = .week
     
     var onTypingTestRequested: (() -> Void)?
     var onPreferencesRequested: (() -> Void)?
@@ -22,115 +29,245 @@ final class DashboardView: NSView {
         setup()
     }
     
+    // MARK: - Layout
+
     private func setup() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.swBackground.cgColor
         
-        let mainStack = NSStackView()
-        mainStack.orientation = .vertical
-        mainStack.alignment = .leading
-        mainStack.spacing = DesignTokens.Spacing.lg
-        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        let scrollView = NSScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
         
-        let titleLabel = NSTextField(labelWithString: "Dashboard")
-        titleLabel.font = DesignTokens.Typography.heading(size: 24)
-        titleLabel.textColor = NSColor.swText
+        let contentStack = NSStackView()
+        contentStack.orientation = .vertical
+        contentStack.alignment = .leading
+        contentStack.spacing = DesignTokens.Spacing.lg
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.edgeInsets = NSEdgeInsets(
+            top: DesignTokens.Spacing.xl,
+            left: DesignTokens.Spacing.xl,
+            bottom: DesignTokens.Spacing.xl,
+            right: DesignTokens.Spacing.xl
+        )
         
+        let headerRow = createHeaderRow()
+        let heroCard = createHeroCard()
         let statsGrid = createStatsGrid()
         
-        let typingTestButton = createButton(title: "Take Typing Test") { [weak self] in
-            self?.onTypingTestRequested?()
-        }
-        
-        let chartTitleLabel = NSTextField(labelWithString: "Words Over Time")
-        chartTitleLabel.font = DesignTokens.Typography.heading(size: 16)
-        chartTitleLabel.textColor = NSColor.swText
-        
+        let chartSection = createSectionHeader("Words Over Time")
         chartView = LineChartView()
         chartView.translatesAutoresizingMaskIntoConstraints = false
         
-        let activityTitleLabel = NSTextField(labelWithString: "Recent Transcriptions")
-        activityTitleLabel.font = DesignTokens.Typography.heading(size: 16)
-        activityTitleLabel.textColor = NSColor.swText
-        
+        let activitySection = createSectionHeader("Recent Transcriptions")
         recentActivityList = RecentActivityListView()
         recentActivityList.translatesAutoresizingMaskIntoConstraints = false
         
-        let preferencesButton = createButton(title: "Preferences...") { [weak self] in
-            self?.onPreferencesRequested?()
-        }
+        let footerRow = createFooterRow()
         
-        mainStack.addArrangedSubview(titleLabel)
-        mainStack.addArrangedSubview(statsGrid)
-        mainStack.addArrangedSubview(typingTestButton)
-        mainStack.addArrangedSubview(chartTitleLabel)
-        mainStack.addArrangedSubview(chartView)
-        mainStack.addArrangedSubview(activityTitleLabel)
-        mainStack.addArrangedSubview(recentActivityList)
-        mainStack.addArrangedSubview(preferencesButton)
+        contentStack.addArrangedSubview(headerRow)
+        contentStack.addArrangedSubview(heroCard)
+        contentStack.addArrangedSubview(statsGrid)
+        contentStack.addArrangedSubview(chartSection)
+        contentStack.addArrangedSubview(chartView)
+        contentStack.addArrangedSubview(activitySection)
+        contentStack.addArrangedSubview(recentActivityList)
+        contentStack.addArrangedSubview(footerRow)
         
-        mainStack.setCustomSpacing(DesignTokens.Spacing.xl, after: titleLabel)
-        mainStack.setCustomSpacing(DesignTokens.Spacing.lg, after: statsGrid)
-        mainStack.setCustomSpacing(DesignTokens.Spacing.xl, after: typingTestButton)
-        mainStack.setCustomSpacing(DesignTokens.Spacing.md, after: chartTitleLabel)
-        mainStack.setCustomSpacing(DesignTokens.Spacing.lg, after: chartView)
-        mainStack.setCustomSpacing(DesignTokens.Spacing.md, after: activityTitleLabel)
-        mainStack.setCustomSpacing(DesignTokens.Spacing.xl, after: recentActivityList)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.xl, after: headerRow)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.md, after: heroCard)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.xl, after: statsGrid)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.sm, after: chartSection)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.xl, after: chartView)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.sm, after: activitySection)
+        contentStack.setCustomSpacing(DesignTokens.Spacing.lg, after: recentActivityList)
         
-        addSubview(mainStack)
+        let clipView = NSClipView()
+        clipView.documentView = contentStack
+        clipView.drawsBackground = false
+        scrollView.contentView = clipView
+        
+        addSubview(scrollView)
         
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: topAnchor, constant: DesignTokens.Spacing.xl),
-            mainStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: DesignTokens.Spacing.xl),
-            mainStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -DesignTokens.Spacing.xl),
-            mainStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -DesignTokens.Spacing.xl),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
             
-            statsGrid.leadingAnchor.constraint(equalTo: mainStack.leadingAnchor),
-            statsGrid.trailingAnchor.constraint(equalTo: mainStack.trailingAnchor),
+            contentStack.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+            contentStack.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+            contentStack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
             
+            headerRow.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
+            headerRow.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: -DesignTokens.Spacing.xl),
+            
+            heroCard.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
+            heroCard.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: -DesignTokens.Spacing.xl),
+            
+            statsGrid.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
+            statsGrid.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: -DesignTokens.Spacing.xl),
+            
+            chartSection.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
             chartView.heightAnchor.constraint(equalToConstant: 200),
-            chartView.leadingAnchor.constraint(equalTo: mainStack.leadingAnchor),
-            chartView.trailingAnchor.constraint(equalTo: mainStack.trailingAnchor),
+            chartView.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
+            chartView.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: -DesignTokens.Spacing.xl),
             
+            activitySection.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
             recentActivityList.heightAnchor.constraint(equalToConstant: 220),
-            recentActivityList.leadingAnchor.constraint(equalTo: mainStack.leadingAnchor),
-            recentActivityList.trailingAnchor.constraint(equalTo: mainStack.trailingAnchor),
+            recentActivityList.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
+            recentActivityList.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: -DesignTokens.Spacing.xl),
             
-            typingTestButton.heightAnchor.constraint(equalToConstant: 36),
-            preferencesButton.heightAnchor.constraint(equalToConstant: 36)
+            footerRow.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor, constant: DesignTokens.Spacing.xl),
+            footerRow.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: -DesignTokens.Spacing.xl)
         ])
         
         refreshStats()
     }
     
-    private func createStatsGrid() -> NSView {
-        let gridStack = NSStackView()
-        gridStack.orientation = .horizontal
-        gridStack.distribution = .fillEqually
-        gridStack.spacing = DesignTokens.Spacing.md
-        gridStack.translatesAutoresizingMaskIntoConstraints = false
+    // MARK: - Header (title + period selector)
+    
+    private func createHeaderRow() -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.distribution = .fill
+        row.spacing = DesignTokens.Spacing.md
+        row.translatesAutoresizingMaskIntoConstraints = false
         
-        let (minutesCard, minutesValueLabel) = createStatCard(title: "minutes saved")
-        minutesSavedLabel = minutesValueLabel
+        let titleLabel = NSTextField(labelWithString: "Dashboard")
+        titleLabel.font = DesignTokens.Typography.heading(size: 22)
+        titleLabel.textColor = NSColor.swText
+        titleLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         
-        let (wordsCard, wordsValueLabel) = createStatCard(title: "words dictated")
-        wordsLabel = wordsValueLabel
+        let periodStack = NSStackView()
+        periodStack.orientation = .horizontal
+        periodStack.spacing = 2
+        periodStack.translatesAutoresizingMaskIntoConstraints = false
         
-        let (typingCard, typingValueLabel) = createStatCard(title: "typing WPM")
-        typingWPMLabel = typingValueLabel
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.swSurface.cgColor
+        container.layer?.cornerRadius = DesignTokens.CornerRadius.medium
+        container.translatesAutoresizingMaskIntoConstraints = false
         
-        let (speakingCard, speakingValueLabel) = createStatCard(title: "speaking WPM")
-        speakingWPMLabel = speakingValueLabel
+        for period in StatPeriod.allCases {
+            let btn = NSButton(title: period.rawValue, target: self, action: #selector(periodTapped(_:)))
+            btn.bezelStyle = .inline
+            btn.isBordered = false
+            btn.font = DesignTokens.Typography.body(size: 11)
+            btn.tag = StatPeriod.allCases.firstIndex(of: period)!
+            btn.wantsLayer = true
+            btn.layer?.cornerRadius = DesignTokens.CornerRadius.small
+            btn.translatesAutoresizingMaskIntoConstraints = false
+            
+            NSLayoutConstraint.activate([
+                btn.heightAnchor.constraint(equalToConstant: 26),
+                btn.widthAnchor.constraint(greaterThanOrEqualToConstant: 44)
+            ])
+            
+            periodButtons.append(btn)
+            periodStack.addArrangedSubview(btn)
+        }
         
-        gridStack.addArrangedSubview(minutesCard)
-        gridStack.addArrangedSubview(wordsCard)
-        gridStack.addArrangedSubview(typingCard)
-        gridStack.addArrangedSubview(speakingCard)
+        container.addSubview(periodStack)
+        NSLayoutConstraint.activate([
+            periodStack.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
+            periodStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            periodStack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2),
+            periodStack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2)
+        ])
         
-        return gridStack
+        updatePeriodButtons()
+        
+        row.addArrangedSubview(titleLabel)
+        row.addArrangedSubview(NSView()) // spacer
+        row.addArrangedSubview(container)
+        
+        return row
     }
     
-    private func createStatCard(title: String) -> (NSView, NSTextField) {
+    // MARK: - Hero stat (time saved)
+    
+    private func createHeroCard() -> NSView {
+        let card = NSView()
+        card.wantsLayer = true
+        card.layer?.backgroundColor = NSColor.swSurface.cgColor
+        card.layer?.cornerRadius = DesignTokens.CornerRadius.large
+        card.translatesAutoresizingMaskIntoConstraints = false
+        
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 2
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        heroValueLabel = NSTextField(labelWithString: "0")
+        heroValueLabel.font = DesignTokens.Typography.heading(size: 40)
+        heroValueLabel.textColor = NSColor.swText
+        heroValueLabel.alignment = .center
+        
+        heroSubtitleLabel = NSTextField(labelWithString: "minutes saved")
+        heroSubtitleLabel.font = DesignTokens.Typography.body(size: 12)
+        heroSubtitleLabel.textColor = NSColor.swTextSecondary
+        heroSubtitleLabel.alignment = .center
+        
+        stack.addArrangedSubview(heroValueLabel)
+        stack.addArrangedSubview(heroSubtitleLabel)
+        
+        card.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            card.heightAnchor.constraint(equalToConstant: 100),
+            stack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: card.centerYAnchor)
+        ])
+        
+        return card
+    }
+    
+    // MARK: - 2x2 stats grid
+    
+    private func createStatsGrid() -> NSView {
+        let outer = NSStackView()
+        outer.orientation = .vertical
+        outer.spacing = DesignTokens.Spacing.sm
+        outer.translatesAutoresizingMaskIntoConstraints = false
+        
+        let topRow = NSStackView()
+        topRow.orientation = .horizontal
+        topRow.distribution = .fillEqually
+        topRow.spacing = DesignTokens.Spacing.sm
+        
+        let bottomRow = NSStackView()
+        bottomRow.orientation = .horizontal
+        bottomRow.distribution = .fillEqually
+        bottomRow.spacing = DesignTokens.Spacing.sm
+        
+        let (wordsCard, wv) = createMiniStat(title: "words dictated")
+        wordsValueLabel = wv
+        let (sessionsCard, sv) = createMiniStat(title: "sessions")
+        sessionsValueLabel = sv
+        let (wpmCard, wpv) = createMiniStat(title: "avg speaking WPM")
+        wpmValueLabel = wpv
+        let (avgCard, av) = createMiniStat(title: "avg words / session")
+        avgWordsValueLabel = av
+        
+        topRow.addArrangedSubview(wordsCard)
+        topRow.addArrangedSubview(sessionsCard)
+        bottomRow.addArrangedSubview(wpmCard)
+        bottomRow.addArrangedSubview(avgCard)
+        
+        outer.addArrangedSubview(topRow)
+        outer.addArrangedSubview(bottomRow)
+        
+        return outer
+    }
+    
+    private func createMiniStat(title: String) -> (NSView, NSTextField) {
         let card = NSView()
         card.wantsLayer = true
         card.layer?.backgroundColor = NSColor.swSurface.cgColor
@@ -140,73 +277,146 @@ final class DashboardView: NSView {
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = DesignTokens.Spacing.xs
+        stack.spacing = 2
         stack.translatesAutoresizingMaskIntoConstraints = false
         
-        let valueLabel = NSTextField(labelWithString: "—")
-        valueLabel.font = DesignTokens.Typography.heading(size: 28)
-        valueLabel.textColor = NSColor.swText
-        valueLabel.alignment = .center
+        let valLabel = NSTextField(labelWithString: "—")
+        valLabel.font = DesignTokens.Typography.heading(size: 22)
+        valLabel.textColor = NSColor.swText
+        valLabel.alignment = .center
         
         let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = DesignTokens.Typography.body(size: 11)
+        titleLabel.font = DesignTokens.Typography.body(size: 10)
         titleLabel.textColor = NSColor.swTextSecondary
         titleLabel.alignment = .center
         
-        stack.addArrangedSubview(valueLabel)
+        stack.addArrangedSubview(valLabel)
         stack.addArrangedSubview(titleLabel)
-        
         card.addSubview(stack)
         
         NSLayoutConstraint.activate([
-            card.heightAnchor.constraint(equalToConstant: 80),
-            
+            card.heightAnchor.constraint(equalToConstant: 68),
             stack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: card.centerYAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: card.leadingAnchor, constant: DesignTokens.Spacing.sm),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -DesignTokens.Spacing.sm)
         ])
         
-        return (card, valueLabel)
+        return (card, valLabel)
     }
     
-    private func createButton(title: String, action: @escaping () -> Void) -> NSButton {
-        let button = DashboardButton(title: title, action: action)
-        return button
+    // MARK: - Section header
+    
+    private func createSectionHeader(_ title: String) -> NSTextField {
+        let label = NSTextField(labelWithString: title)
+        label.font = DesignTokens.Typography.heading(size: 14)
+        label.textColor = NSColor.swTextSecondary
+        return label
     }
+    
+    // MARK: - Footer (typing test + prefs)
+    
+    private func createFooterRow() -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.distribution = .fill
+        row.spacing = DesignTokens.Spacing.sm
+        row.translatesAutoresizingMaskIntoConstraints = false
+        
+        let typingBtn = DashboardButton(title: "Typing Test") { [weak self] in
+            self?.onTypingTestRequested?()
+        }
+        typingBtn.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([typingBtn.heightAnchor.constraint(equalToConstant: 32)])
+        
+        let prefsBtn = DashboardButton(title: "Preferences...") { [weak self] in
+            self?.onPreferencesRequested?()
+        }
+        prefsBtn.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([prefsBtn.heightAnchor.constraint(equalToConstant: 32)])
+        
+        row.addArrangedSubview(typingBtn)
+        row.addArrangedSubview(NSView()) // spacer
+        row.addArrangedSubview(prefsBtn)
+        
+        return row
+    }
+    
+    // MARK: - Period selector
+    
+    @objc private func periodTapped(_ sender: NSButton) {
+        selectedPeriod = StatPeriod.allCases[sender.tag]
+        updatePeriodButtons()
+        refreshStats()
+    }
+    
+    private func updatePeriodButtons() {
+        for (i, btn) in periodButtons.enumerated() {
+            let isSelected = StatPeriod.allCases[i] == selectedPeriod
+            btn.layer?.backgroundColor = isSelected ? NSColor.swText.cgColor : NSColor.clear.cgColor
+            btn.contentTintColor = isSelected ? NSColor.swBackground : NSColor.swTextSecondary
+        }
+    }
+    
+    // MARK: - Data binding
     
     func refreshStats() {
         let analytics = AnalyticsManager.shared
+        let ps = analytics.stats(for: selectedPeriod)
         
-        let typingWPM = analytics.typingWPM ?? 45
-        typingWPMLabel.stringValue = "\(typingWPM)"
-        
-        let minutes = analytics.minutesSaved(benchmarkWPM: typingWPM)
-        if minutes > 0 {
-            minutesSavedLabel.stringValue = String(format: "%.1f", minutes)
+        let minutes = ps.minutesSaved
+        if minutes >= 60 {
+            heroValueLabel.stringValue = String(format: "%.1f", minutes / 60)
+            heroSubtitleLabel.stringValue = "hours saved"
         } else {
-            minutesSavedLabel.stringValue = "0"
+            heroValueLabel.stringValue = minutes >= 1 ? String(format: "%.1f", minutes) : "0"
+            heroSubtitleLabel.stringValue = "minutes saved"
         }
         
-        let words = analytics.totalWords
-        wordsLabel.stringValue = formatNumber(words)
+        wordsValueLabel.stringValue = formatNumber(ps.words)
+        sessionsValueLabel.stringValue = "\(ps.sessions)"
+        wpmValueLabel.stringValue = ps.speakingWPM > 0 ? "\(ps.speakingWPM)" : "—"
+        avgWordsValueLabel.stringValue = ps.avgWordsPerSession > 0 ? "\(ps.avgWordsPerSession)" : "—"
         
-        speakingWPMLabel.stringValue = "\(analytics.speakingWPM)"
-        
-        let recentStats = analytics.recentStats(days: 30)
-        chartView.dataPoints = recentStats.map { Double($0.words) }
+        if selectedPeriod == .today {
+            let hourly = analytics.todayHourlyStats()
+            chartView.dataPoints = hourly.map { Double($0.words) }
+            chartView.barLabels = hourly.map { entry in
+                let h = entry.hour % 12 == 0 ? 12 : entry.hour % 12
+                let ampm = entry.hour < 12 ? "a" : "p"
+                return "\(h)\(ampm)"
+            }
+        } else {
+            let dailyStats = ps.dailyStats
+            chartView.dataPoints = dailyStats.map { Double($0.words) }
+            
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let labelFormatter = DateFormatter()
+            labelFormatter.dateFormat = "d"
+            
+            chartView.barLabels = dailyStats.map { stat in
+                if let date = dateFormatter.date(from: stat.date) {
+                    return labelFormatter.string(from: date)
+                }
+                return ""
+            }
+        }
         
         recentActivityList.updateTranscriptions(analytics.recentTranscriptions)
     }
     
     private func formatNumber(_ number: Int) -> String {
-        if number >= 1000 {
-            let thousands = Double(number) / 1000.0
-            return String(format: "%.1fk", thousands)
+        if number >= 1_000_000 {
+            return String(format: "%.1fM", Double(number) / 1_000_000.0)
+        } else if number >= 1000 {
+            return String(format: "%.1fk", Double(number) / 1000.0)
         }
         return "\(number)"
     }
 }
+
+// MARK: - Helpers
 
 private class DashboardButton: NSButton {
     
@@ -220,14 +430,17 @@ private class DashboardButton: NSButton {
     }
     
     private func setupButton() {
-        bezelStyle = .rounded
-        isBordered = true
-        font = DesignTokens.Typography.body(size: 13)
+        bezelStyle = .inline
+        isBordered = false
+        font = DesignTokens.Typography.body(size: 12)
+        contentTintColor = NSColor.swTextSecondary
         target = self
         self.action = #selector(buttonClicked)
         
         wantsLayer = true
-        layer?.cornerRadius = DesignTokens.CornerRadius.medium
+        layer?.cornerRadius = DesignTokens.CornerRadius.small
+        layer?.borderWidth = 0.5
+        layer?.borderColor = NSColor.swBorder.cgColor
     }
     
     @objc private func buttonClicked() {
@@ -424,9 +637,7 @@ private class TranscriptionRowView: NSView {
     }
     
     private func truncateText(_ text: String, maxLength: Int) -> String {
-        if text.count <= maxLength {
-            return text
-        }
+        if text.count <= maxLength { return text }
         return String(text.prefix(maxLength)) + "..."
     }
     

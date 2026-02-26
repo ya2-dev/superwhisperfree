@@ -184,7 +184,79 @@ final class AnalyticsManager {
         return result
     }
     
+    func stats(for period: StatPeriod) -> PeriodStats {
+        let days: Int
+        switch period {
+        case .today: days = 1
+        case .week: days = 7
+        case .month: days = 30
+        case .allTime: days = 0
+        }
+        
+        let dailySlice: [DailyStat]
+        if days == 0 {
+            dailySlice = analytics.dailyStats
+        } else {
+            let calendar = Calendar.current
+            let cutoff = calendar.date(byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: Date()))!
+            dailySlice = analytics.dailyStats.filter {
+                if let d = dateFormatter.date(from: $0.date) { return d >= cutoff }
+                return false
+            }
+        }
+        
+        let words = dailySlice.reduce(0) { $0 + $1.words }
+        let recordings = dailySlice.reduce(0) { $0 + $1.recordings }
+        let durationSec = dailySlice.reduce(0.0) { $0 + $1.totalDurationSec }
+        let speakMin = durationSec / 60.0
+        let speakWPM = speakMin > 0 ? Int(Double(words) / speakMin) : 0
+        let avgWords = recordings > 0 ? Int(Double(words) / Double(recordings)) : 0
+        let tWPM = analytics.typingWPM ?? 45
+        let saved = tWPM > 0 ? max(0, Double(words) / Double(tWPM) - speakMin) : 0
+        
+        return PeriodStats(
+            words: words,
+            sessions: recordings,
+            speakingWPM: speakWPM,
+            avgWordsPerSession: avgWords,
+            minutesSaved: saved,
+            dailyStats: days == 0 ? recentStats(days: max(analytics.dailyStats.count, 30)) : recentStats(days: days)
+        )
+    }
+    
+    func todayHourlyStats() -> [(hour: Int, words: Int)] {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        
+        let todayRecords = analytics.recentTranscriptions.filter { $0.timestamp >= startOfToday }
+        
+        var hourBuckets = [Int: Int]()
+        for record in todayRecords {
+            let hour = calendar.component(.hour, from: record.timestamp)
+            hourBuckets[hour, default: 0] += record.wordCount
+        }
+        
+        let now = calendar.component(.hour, from: Date())
+        return (0...now).map { h in (hour: h, words: hourBuckets[h] ?? 0) }
+    }
+    
     func reload() {
         load()
     }
+}
+
+enum StatPeriod: String, CaseIterable {
+    case today = "Today"
+    case week = "7D"
+    case month = "30D"
+    case allTime = "All Time"
+}
+
+struct PeriodStats {
+    let words: Int
+    let sessions: Int
+    let speakingWPM: Int
+    let avgWordsPerSession: Int
+    let minutesSaved: Double
+    let dailyStats: [DailyStat]
 }

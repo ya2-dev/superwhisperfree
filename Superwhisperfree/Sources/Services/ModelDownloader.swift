@@ -22,14 +22,36 @@ final class ModelDownloader: NSObject {
         "parakeet": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2",
         "whisper-tiny": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.en.tar.bz2",
         "whisper-base": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.en.tar.bz2",
-        "whisper-small": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.en.tar.bz2"
+        "whisper-small": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.en.tar.bz2",
+        "whisper-tiny-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.tar.bz2",
+        "whisper-base-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.tar.bz2",
+        "whisper-small-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.tar.bz2",
+        "whisper-medium": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-medium.en.tar.bz2",
+        "whisper-medium-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-medium.tar.bz2",
+        "whisper-large-v3-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-large-v3.tar.bz2",
+        "whisper-turbo-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-turbo.tar.bz2",
+        "whisper-distil-small": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-distil-small.en.tar.bz2",
+        "whisper-distil-medium": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-distil-medium.en.tar.bz2",
+        "whisper-distil-large-v3.5-multi": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-distil-large-v3.5.tar.bz2",
+        "parakeet-v3": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2"
     ]
     
     private static let modelDirectoryNames: [String: String] = [
         "parakeet": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8",
         "whisper-tiny": "sherpa-onnx-whisper-tiny.en",
         "whisper-base": "sherpa-onnx-whisper-base.en",
-        "whisper-small": "sherpa-onnx-whisper-small.en"
+        "whisper-small": "sherpa-onnx-whisper-small.en",
+        "whisper-tiny-multi": "sherpa-onnx-whisper-tiny",
+        "whisper-base-multi": "sherpa-onnx-whisper-base",
+        "whisper-small-multi": "sherpa-onnx-whisper-small",
+        "whisper-medium": "sherpa-onnx-whisper-medium.en",
+        "whisper-medium-multi": "sherpa-onnx-whisper-medium",
+        "whisper-large-v3-multi": "sherpa-onnx-whisper-large-v3",
+        "whisper-turbo-multi": "sherpa-onnx-whisper-turbo",
+        "whisper-distil-small": "sherpa-onnx-whisper-distil-small.en",
+        "whisper-distil-medium": "sherpa-onnx-whisper-distil-medium.en",
+        "whisper-distil-large-v3.5-multi": "sherpa-onnx-whisper-distil-large-v3.5",
+        "parakeet-v3": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
     ]
     
     private override init() {
@@ -294,7 +316,7 @@ enum ModelDownloaderError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidModelId(let id):
-            return "Invalid model ID: \(id). Valid IDs are: parakeet, whisper-tiny, whisper-base, whisper-small"
+            return "Invalid model ID: \(id). Valid IDs are: parakeet, parakeet-v3, whisper-tiny, whisper-base, whisper-small, whisper-medium, whisper-tiny-multi, whisper-base-multi, whisper-small-multi, whisper-medium-multi, whisper-large-v3-multi, whisper-turbo-multi, whisper-distil-small, whisper-distil-medium, whisper-distil-large-v3.5-multi"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .fileSystemError(let error):
